@@ -1,0 +1,39 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Test Donation</title>
+    <style>
+        body { font-family: Arial, sans-serif; margin: 20px; }
+        .form-container { max-width: 500px; }
+        .error { color: red; }
+        .success { color: green; }
+        label { display: block; margin: 10px 0 5px; }
+        input, select { width: 100%; padding: 8px; margin-bottom: 10px; }
+        button { padding: 10px 20px; background-color: #007bff; color: white; border: none; cursor: pointer; }
+        button:hover { background-color: #0056b3; }
+    </style>
+</head>
+<body>
+    <h1>Test Donation Submission</h1>
+    <div class="form-container">
+        <form method="POST">
+            <label for="category">Donation Category:</label>
+            <select name="category" id="category" required>
+                {% for category in categories %}
+                <option value="{{ category }}">{{ category }}</option>
+                {% endfor %}
+            </select>
+            <label for="address">Address:</label>
+            <input type="text" name="address" id="address" placeholder="e.g., 123 Main St, San Francisco, CA" required>
+            <button type="submit">Submit Donation</button>
+        </form>
+        {% if error %}
+        <p class="error">{{ error }}</p>
+        {% endif %}
+        {% if success %}
+        <p class="success">{{ success }}</p>
+        {% endif %}
+        <p><a href="/admin">View Admin Dashboard</a></p>
+    </div>
+</body>
+</html>

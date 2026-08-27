@@ -1,0 +1,95 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Admin Donation Dashboard</title>
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.3/dist/leaflet.css" />
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            display: flex;
+            height: 100vh;
+            margin: 0;
+        }
+        #sidebar {
+            width: 30%;
+            padding: 1rem;
+            overflow-y: auto;
+            border-right: 1px solid #ccc;
+        }
+        #map {
+            flex-grow: 1;
+        }
+        .donation {
+            margin-bottom: 1rem;
+            padding: 0.5rem;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+        }
+        .donation:hover {
+            background-color: #f0f0f0;
+            cursor: pointer;
+        }
+    </style>
+</head>
+<body>
+    <div id="sidebar">
+        <h2>Donation Requests</h2>
+        <div id="donation-list"></div>
+    </div>
+    <div id="map"></div>
+
+    <script src="https://unpkg.com/leaflet@1.9.3/dist/leaflet.js"></script>
+    <script>
+        const map = L.map('map').setView([37.7749, -122.4194], 5); // Center on USA
+        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+            maxZoom: 19
+        }).addTo(map);
+
+        let polylineLayer = null;
+        let userMarker = null;
+        let warehouseMarker = null;
+
+        function drawRoute(polyline) {
+            if (polylineLayer) map.removeLayer(polylineLayer);
+            if (userMarker) map.removeLayer(userMarker);
+            if (warehouseMarker) map.removeLayer(warehouseMarker);
+
+            const latlngs = polyline.map(pair => [pair[0], pair[1]]);
+            polylineLayer = L.polyline(latlngs, { color: 'blue' }).addTo(map);
+
+            userMarker = L.marker(latlngs[0]).addTo(map).bindPopup("User Location").openPopup();
+            warehouseMarker = L.marker(latlngs[latlngs.length - 1]).addTo(map).bindPopup("Warehouse");
+
+            map.fitBounds(polylineLayer.getBounds());
+        }
+
+        function createDonationCard(donation, index) {
+            const div = document.createElement('div');
+            div.className = 'donation';
+            div.innerHTML = `
+                <strong>${donation.category}</strong> (${donation.quantity} pcs, ${donation.weight} kg)<br/>
+                From: ${donation.user_address}<br/>
+                To: ${donation.warehouse_address}<br/>
+                Status: ${donation.status}<br/>
+                <small>${donation.timestamp}</small>
+            `;
+            div.onclick = () => drawRoute(donation.polyline);
+            return div;
+        }
+
+        async function loadDonations() {
+            const res = await fetch('/admin');
+            const data = await res.json();
+
+            const list = document.getElementById('donation-list');
+            data.forEach((donation, index) => {
+                const card = createDonationCard(donation, index);
+                list.appendChild(card);
+            });
+        }
+
+        loadDonations();
+    </script>
+</body>
+</html>
