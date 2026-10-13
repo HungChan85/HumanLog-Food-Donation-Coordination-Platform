@@ -1,0 +1,89 @@
+name: humanlog
+services:
+  postgres:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_DB: humanlog
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?Copy .env.example to .env first}
+      COORDINATOR_DB_PASSWORD: ${COORDINATOR_DB_PASSWORD:?Set coordinator database password}
+      DONOR_DB_PASSWORD: ${DONOR_DB_PASSWORD:?Set donor database password}
+      REQUESTER_DB_PASSWORD: ${REQUESTER_DB_PASSWORD:?Set requester database password}
+    ports: ["127.0.0.1:5432:5432"]
+    volumes:
+      - humanlog_data:/var/lib/postgresql/data
+      - ./infra/init-db.sh:/docker-entrypoint-initdb.d/01-schemas.sh:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d humanlog"]
+      interval: 5s
+      timeout: 3s
+      retries: 15
+  coordinator:
+    build: ./backend
+    command: ["python", "run.py", "coordinator"]
+    environment:
+      DATABASE_URL: postgresql://humanlog_coordinator:${COORDINATOR_DB_PASSWORD}@postgres:5432/humanlog
+      JWT_PRIVATE_KEY_FILE: /keys/private.pem
+      JWT_PUBLIC_KEY_FILE: /keys/public.pem
+      DONOR_URL: http://donor:5001
+      REQUESTER_URL: http://requester:5002
+      FRONTEND_ORIGINS: ${FRONTEND_ORIGINS}
+      COOKIE_SECURE: ${COOKIE_SECURE:-false}
+      OSM_USER_AGENT: ${OSM_USER_AGENT:-HumanLog-FoodDonation/1.0}
+      NOMINATIM_URL: ${NOMINATIM_URL:-https://nominatim.openstreetmap.org/search}
+      OSRM_URL: ${OSRM_URL:-https://router.project-osrm.org}
+    ports: ["127.0.0.1:5000:5000"]
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:5000/health', timeout=3)"]
+      interval: 5s
+      timeout: 5s
+      retries: 15
+    volumes:
+      - ./backend/keys/private.pem:/keys/private.pem:ro
+      - ./backend/keys/public.pem:/keys/public.pem:ro
+    depends_on:
+      postgres: {condition: service_healthy}
+  donor:
+    build: ./backend
+    command: ["python", "run.py", "donor"]
+    environment:
+      DATABASE_URL: postgresql://humanlog_donor:${DONOR_DB_PASSWORD}@postgres:5432/humanlog
+      JWT_PUBLIC_KEY_FILE: /keys/public.pem
+      COORDINATOR_URL: http://coordinator:5000
+      FRONTEND_ORIGINS: ${FRONTEND_ORIGINS}
+    ports: ["127.0.0.1:5001:5001"]
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:5001/health', timeout=3)"]
+      interval: 5s
+      timeout: 5s
+      retries: 15
+    volumes: ["./backend/keys/public.pem:/keys/public.pem:ro"]
+    depends_on:
+      postgres: {condition: service_healthy}
+  requester:
+    build: ./backend
+    command: ["python", "run.py", "requester"]
+    environment:
+      DATABASE_URL: postgresql://humanlog_requester:${REQUESTER_DB_PASSWORD}@postgres:5432/humanlog
+      JWT_PUBLIC_KEY_FILE: /keys/public.pem
+      COORDINATOR_URL: http://coordinator:5000
+      FRONTEND_ORIGINS: ${FRONTEND_ORIGINS}
+    ports: ["127.0.0.1:5002:5002"]
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:5002/health', timeout=3)"]
+      interval: 5s
+      timeout: 5s
+      retries: 15
+    volumes: ["./backend/keys/public.pem:/keys/public.pem:ro"]
+    depends_on:
+      postgres: {condition: service_healthy}
+  frontend:
+    build: ./HumanLog Food Donation Platform
+    ports: ["127.0.0.1:8080:80"]
+    depends_on:
+      coordinator: {condition: service_healthy}
+      donor: {condition: service_healthy}
+      requester: {condition: service_healthy}
+volumes:
+  humanlog_data:
+

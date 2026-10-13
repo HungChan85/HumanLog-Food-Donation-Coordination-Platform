@@ -1,0 +1,11 @@
+{
+  "title": "HumanLog — Food Donation Coordination",
+  "description": "Facilitating food donations in Ho Chi Minh City, this platform connects donors, requesters, and coordinators to streamline food assistance efforts.",
+  "robots": {
+    "index": false
+  },
+  "accessibility": {
+    "addBypassLinks": false,
+    "ignoreReducedMotion": false
+  }
+}
